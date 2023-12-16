@@ -1,0 +1,295 @@
+1 Instalasi Postfix dan Dovecot
+
+$apt-get install -y postfix sasl2-bin
+
+Langkah 2: Pilih tergantung kebutuhan(saya memilih no configuration karena akan dikonfigurasi secara manual)
+
+Langkah 3: Instalasi paket Dovecot
+$ apt-get install -y dovecot-core dovecot-pop3d dovecot-imapd
+
+2 Konfigurasi Postfix
+
+1: Rename file dan copy file Konfigurasi utama Postfix
+$cp /usr/share/postfix/main.cf.dist /etc/postfix/main.cf
+
+2: Membuka Direktori Konfigurasi utama Postfix
+$nano /etc/postfix/main.cf
+
+Langkah 3: Lakukan Perubahan Konfigurasi sebagai berikut
+#Hilangkan tanda "#" dan lakukan Perubahan Konfigurasi seperti dibawah ini
+
+#line 82 : Hilangkan tanda pagar
+mail_owner = postfix
+
+#line 98 : Hilangkan tanda pagar dan ganti domain nya sesuai domain name anda
+myhostname = finalprojectku.com
+
+#line 106 :Hilangkan tanda pagar dan ganti domain nya sesuai domain name anda
+mydomain = finalprojectku.com
+
+#line 127 : Hilangkan tanda pagar
+myorigin = $mydomain
+
+#line 141 : Hilangkan tanda pagar
+inet_interfaces = all
+
+#line 189 : Hilangkan tanda pagar
+mydestination = $myhostname, localhost.$mydomain, localhost, $mydomain
+
+#line 232 : Hilangkan tanda pagar
+local_recipient_maps = unix:passwd.byname $alias_maps
+
+#line 277 : Hilangkan tanda pagar
+mynetworks_style = subnet
+
+#line 294 : Tambahkan subnet Jaringan anda
+mynetworks = 127.0.0.0/8, 192.168.171.0/24
+
+#line 416 : Hilangkan tanda pagar
+alias_maps = hash:/etc/aliases
+
+#line 427 : Hilangkan tanda pagar
+alias_database = hash:/etc/aliases
+
+#line 449 : Hilangkan tanda pagar
+home_mailbox = Maildir/
+
+#line 585: Tambahkan tanda pagar 
+#smtpd_banner = $myhostname ESMTP $mail_name (Debian/GNU)
+
+#line 659 : Tambahkan command ini
+sendmail_path = /usr/sbin/postfix
+
+#line 664 : Tambahkan command ini
+newaliases_path = /usr/bin/newaliases
+
+#line 669 : Tambahkan command ini
+mailq_path = /usr/bin/mailq
+
+#line 675 : Tambahkan command ini
+setgid_group = postdrop
+
+#line 679 : tambahkan tanda pagar
+#html_directory =
+
+#line 683 : tambahkan tanda pagar
+#manpage_directory =
+
+#line 688 : tambahkan tanda pagar
+#sample_directory =
+
+#line 692 : tambahkan tanda pagar
+#readme_directory =
+
+#line 692 : agar listen Ipv4 jika ingin ipv4 maka ubah ke(all)
+inet_protocols = ipv4
+
+# Tambahkan dibaris akhir
+# menonaktifkan SMTP VRFY untuk mengamankan mail server
+disable_vrfy_command = yes
+
+Langkah 4: Restart Layanan Postfix
+$systemctl restart postfix
+
+3 Konfigurasi Dovecot
+
+Langkah 1: Buka file Konfigurasi utama dovecot
+#nano /etc/dovecot/dovecot.conf
+
+Langkah 2: Lakukan Perubahan seperti dibawah ini
+#line 30 : Hilangkan tanda pagar
+listen = *, ::
+
+Langkah 3: Buka file Konfigurasi dibawah ini
+$nano /etc/dovecot/conf.d/10-auth.conf
+
+Langkah 4: Lakukan Perubahan Konfigurasi
+#line 10 : Hilangkan tanda pagar dan Tambahkan
+disable_plaintext_auth = no
+
+#line 100 : Tambahkan command
+auth_mechanisms = plain login
+
+Langkah 5: Buka File Konfigurasi
+$ nano /etc/dovecot/conf.d/10-mail.conf
+
+Langkah 6: Lakukan Perubahan Konfigurasi
+#line 30 : Ubah lokasi nya ke Maildir
+mail_location = maildir:~/Maildir
+
+Langkah 7: Buka File Konfigurasi
+nano /etc/dovecot/conf.d/10-master.conf
+
+Langkah 8: Lakukan Perubahan Konfigurasi
+#Hilangkan tanda pagar
+service imap-login {
+  inet_listener imap {
+    port = 143
+  }
+
+#line 107-109 : hilangkan tanda pagar dan tambahkan
+  # Postfix smtp-auth
+  unix_listener /var/spool/postfix/private/auth {
+    mode = 0666
+    user = postfix
+    group = postfix
+  }
+
+Langkah 9: Restart Layanan Dovecot
+$systemctl restart dovecot
+
+
+4 Konfigurasi Webmail Roundcube
+
+Langkah 1: Download dan extract File Roundcube
+$wget https://github.com/roundcube/roundcubemail/releases/download/1.6.4/roundcubemail-1.6.4-complete.tar.gz
+$tar xzvf roundcubemail-1.6.4-complete.tar.gz
+
+Langkah 2: Buat Folder di var/ww/html
+$mkdir -p /var/www/html/roundcube
+
+Langkah 3: Pindahkan isi direktori roundcube saya menyimpan file unduhan di /tmp,jadi diseusikan lokasi nya
+$mv /tmp/roundcubemail-1.6.4/* /var/www/html/roundcube/
+
+Langkah 4: install php-fpm
+$apt-get install -y php-fpm
+
+Langkah 5: Buat Database User untuk Roundcube (Bisa disesuaikan ini hanya contoh)
+mysql -u root
+create database roundcubemail;
+CREATE USER roundcube@localhost IDENTIFIED BY '1';
+grant all privileges on roundcubemail.* to roundcube@'localhost' identified by '1';
+flush privileges;
+exit;
+
+(jika user roundcube belum mendapat akses ke database bisa menggunakan)
+GRANT SELECT, INSERT, UPDATE, DELETE, CREATE ON roundcubemail.* TO 'roundcube'@'localhost';
+
+Langkah 6: Eksekusi Command ini
+ mysql roundcubemail < /var/www/html/roundcube/SQL/mysql.initial.sql
+
+Langkah 7: Buka direktori utama Roundcubemail
+$cd /var/www/html/roundcube/config/
+
+Langkah 8: Copy file default konfigurasi
+$cp config.inc.php.sample config.inc.php
+
+Langkah 9: Buka File Konfigurasi
+$nano config.inc.php
+
+Langkah 9: Ubah isi Konfigurasi
+<?php
+
+/*
+ +-----------------------------------------------------------------------+
+ | Local configuration for the Roundcube Webmail installation.           |
+ |                                                                       |
+ | This is a sample configuration file only containing the minimum       |
+ | setup required for a functional installation. Copy more options       |
+ | from defaults.inc.php to this file to override the defaults.          |
+ |                                                                       |
+ | This file is part of the Roundcube Webmail client                     |
+ | Copyright (C) The Roundcube Dev Team                                  |
+ |                                                                       |
+ | Licensed under the GNU General Public License version 3 or            |
+ | any later version with exceptions for skins & plugins.                |
+ | See the README file for a full license statement.                     |
+ +-----------------------------------------------------------------------+
+*/
+
+$config['enable_installer'] = false;
+
+// Database connection string (DSN) for read+write operations
+// Format (compatible with PEAR MDB2): db_provider://user:password@host/database
+// Currently supported db_providers: mysql, pgsql, sqlite, mssql, sqlsrv, oracle
+// For examples see http://pear.php.net/manual/en/package.database.mdb2.intro-dsn.php
+// NOTE: for SQLite use absolute path (Linux): 'sqlite:////full/path/to/sqlite.db?mode=0646'
+//       or (Windows): 'sqlite:///C:/full/path/to/sqlite.db'
+$config['db_dsnw'] = 'mysql://roundcube:1@localhost/roundcubemail';
+
+// IMAP host chosen to perform the log-in.
+// See defaults.inc.php for the option description.
+$config['imap_host'] = 'finalprojectku.com:143';
+
+// SMTP server host (for sending mails).
+// See defaults.inc.php for the option description.
+$config['smtp_host'] = 'finalprojectku:25';
+
+// SMTP username (if required) if you use %u as the username Roundcube
+// will use the current username for login
+$config['smtp_user'] = '%u';
+
+// SMTP password (if required) if you use %p as the password Roundcube
+// will use the current user's password for login
+$config['smtp_pass'] = '%p';
+
+// provide an URL where a user can get support for this Roundcube installation
+$config['support_url'] = '';
+
+// Name your service. This is displayed on the login screen and in the window title
+$config['product_name'] = 'Roundcube Webmail';
+
+// This key is used to encrypt the users imap password which is stored
+// in the session record. For the default cipher method it must be
+// exactly 24 characters long.
+// YOUR KEY MUST BE DIFFERENT THAN THE SAMPLE VALUE FOR SECURITY REASONS
+$config['des_key'] = 'rcmail-!24ByteDESkey*Str';
+
+// List of active plugins (in plugins/ directory)
+$config['plugins'] = [
+    'archive',
+    'zipdownload',
+];
+
+// skin name: folder from skins/
+$config['skin'] = 'elastic';
+$config['smtp_server'] = 'localhost';
+$config['smtp_user'] = '';
+$config['smtp_pass'] = '';
+
+Langkah 10: Restart semua layanan
+$systemctl apache2 postfix dovecot
+
+Langkah 11: Membuat contoh user untuk test Email saya akan membuat 2 user untuk saling mengirim email
+root@finalprojectku:~# adduser fenrir717
+Adding user `fenrir717' ...
+Adding new group `fenrir717' (1004) ...
+Adding new user `fenrir717' (1004) with group `fenrir717 (1004)' ...
+Creating home directory `/home/fenrir717' ...
+Copying files from `/etc/skel' ...
+New password:
+Retype new password:
+passwd: password updated successfully
+Changing the user information for fenrir717
+Enter the new value, or press ENTER for the default
+        Full Name []: fenrir
+        Room Number []:
+        Work Phone []:
+        Home Phone []:
+        Other []:
+Is the information correct? [Y/n] y
+Adding new user `fenrir717' to supplemental / extra groups `users' ...
+Adding user `fenrir717' to group `users' ...
+root@finalprojectku:~# adduser byul
+Adding user `byul' ...
+Adding new group `byul' (1005) ...
+Adding new user `byul' (1005) with group `byul (1005)' ...
+Creating home directory `/home/byul' ...
+Copying files from `/etc/skel' ...
+New password:
+Retype new password:
+passwd: password updated successfully
+Changing the user information for byul
+Enter the new value, or press ENTER for the default
+        Full Name []: yi byul
+        Room Number []:
+        Work Phone []:
+        Home Phone []:
+        Other []:
+Is the information correct? [Y/n] y
+Adding new user `byul' to supplemental / extra groups `users' ...
+Adding user `byul' to group `users' ...
+
+5 Menguji Konfigurasi
+Kita akan menguji Konfigurasi,untuk melakukan test mengirim email di 2 user yang dibuat sebelumnya:
+buka web kemudian ketikan 192.168.1.18/roundcube
